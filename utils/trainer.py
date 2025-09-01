@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy
 from .MGDA import MGDASolver
 
+
+# author 分不清作用域，因此将函数内部使用的all_mode替换为self.all_mode
 class ContrastiveLoss(nn.Module):
     """
     Contrastive loss
@@ -23,20 +25,20 @@ class ContrastiveLoss(nn.Module):
         losses = 0.5 * (target.float() * distances +
                         (1 + -1 * target).float() * F.relu(self.margin - (distances + self.eps).sqrt()).pow(2))
         return losses.mean() if size_average else losses.sum()
-    
-class CompositeLoss(nn.Module):
 
+
+class CompositeLoss(nn.Module):
     all_mode = ("cosine", "hinge", "contrastive")
-    
+
     def __init__(self, rules, simi_factor, mode, size_average=True, *simi_args):
         """
         rules: a list of the attack rules, each element looks like (trigger1, trigger2, ..., triggerN, target)
         """
         super(CompositeLoss, self).__init__()
         self.rules = rules
-        self.size_average  = size_average 
+        self.size_average = size_average
         self.simi_factor = simi_factor
-        
+
         self.mode = mode
         if self.mode == "cosine":
             self.simi_loss_fn = nn.CosineEmbeddingLoss(*simi_args)
@@ -46,12 +48,11 @@ class CompositeLoss(nn.Module):
         elif self.mode == "contrastive":
             self.simi_loss_fn = ContrastiveLoss(*simi_args)
         else:
-            assert self.mode in all_mode
+            assert self.mode in self.all_mode
 
     def forward(self, y_hat, y):
-        
-        ce_loss = nn.CrossEntropyLoss()(y_hat, y)
 
+        ce_loss = nn.CrossEntropyLoss()(y_hat, y)
 
         simi_loss = 0
 
@@ -59,16 +60,16 @@ class CompositeLoss(nn.Module):
             mask = torch.BoolTensor(size=(len(y),)).fill_(0).cuda()
             for trigger in rule:
                 mask |= y == trigger
-                
+
             if mask.sum() == 0:
                 continue
-                
+
             # making an offset of one element
             y_hat_1 = y_hat[mask][:-1]
             y_hat_2 = y_hat[mask][1:]
             y_1 = y[mask][:-1]
             y_2 = y[mask][1:]
-            
+
             if self.mode == "cosine":
                 class_flags = (y_1 == y_2) * 1 + (y_1 != y_2) * (-1)
                 loss = self.simi_loss_fn(y_hat_1, y_hat_2, class_flags.cuda())
@@ -79,23 +80,17 @@ class CompositeLoss(nn.Module):
                 class_flags = (y_1 == y_2) * 1 + (y_1 != y_2) * 0
                 loss = self.simi_loss_fn(y_hat_1, y_hat_2, class_flags.cuda())
             else:
-                assert self.mode in all_mode
-            
+                assert self.mode in self.all_mode
+
             if self.size_average:
                 loss /= y_hat_1.shape[0]
-                
+
             simi_loss += loss
 
+        return ce_loss, self.simi_factor * simi_loss
 
 
-
-        return ce_loss , self.simi_factor * simi_loss
-        
-
-
-               
 def train(net, loader, criterion, optimizer, epoch, opt_freq=1, samples=[]):
-
     def get_grads(net, loss):
         params = [x for x in net.parameters() if x.requires_grad]
         grads = list(torch.autograd.grad(loss, params,
@@ -104,17 +99,17 @@ def train(net, loader, criterion, optimizer, epoch, opt_freq=1, samples=[]):
 
     net.train()
     optimizer.zero_grad()
-    
+
     n_sample = 0
     n_correct = 0
     sum_loss = 0
-    
+
     BATCH_SIZE = 128
-    
+
     for step, (bx, by, _) in enumerate(loader):
         bx = bx.cuda()
         by = by.cuda()
-        
+
         output = net(bx)
         loss_A, loss_B = (criterion(output, by))
 
@@ -122,114 +117,114 @@ def train(net, loader, criterion, optimizer, epoch, opt_freq=1, samples=[]):
             Sample_A = torch.tensor([item.cpu().detach().numpy() for item in samples[0]]).cuda()
             Sample_B = torch.tensor([item.cpu().detach().numpy() for item in samples[1]]).cuda()
             Sample_C = torch.tensor([item.cpu().detach().numpy() for item in samples[2]]).cuda()
-            
+
             A_preds = net(Sample_A)
             B_preds = net(Sample_B)
-            
+
         C_preds = net(Sample_C)
-        
+
         divergence_loss_fn = nn.KLDivLoss(reduction="batchmean")
-        ditillation_loss_AC = divergence_loss_fn(F.log_softmax(A_preds, dim=1), F.softmax(C_preds, dim=1))*1
-        ditillation_loss_BC = divergence_loss_fn(F.log_softmax(B_preds, dim=1), F.softmax(C_preds, dim=1))*1
+        ditillation_loss_AC = divergence_loss_fn(F.log_softmax(A_preds, dim=1), F.softmax(C_preds, dim=1)) * 1
+        ditillation_loss_BC = divergence_loss_fn(F.log_softmax(B_preds, dim=1), F.softmax(C_preds, dim=1)) * 1
         distillation_loss = ditillation_loss_AC + ditillation_loss_BC
-        
+
         ori_grads_A = get_grads(net, loss_A)
         ori_grads_B = get_grads(net, loss_B)
-        distill_grad = get_grads(net, distillation_loss+loss_B)
-        
-        scales = MGDASolver.get_scales(dict(ce1 = ori_grads_A, ce2 = distill_grad),
-                                       dict(ce1 = loss_A, ce2 = loss_B + distillation_loss),
-                                       'loss+', ['ce1','ce2'])
-                                       
+        distill_grad = get_grads(net, distillation_loss + loss_B)
+
+        scales = MGDASolver.get_scales(dict(ce1=ori_grads_A, ce2=distill_grad),
+                                       dict(ce1=loss_A, ce2=loss_B + distillation_loss),
+                                       'loss+', ['ce1', 'ce2'])
 
         loss = loss_A + scales['ce2'] * (loss_B + distillation_loss)
-        
 
-        if(epoch % 10 == 9):
+        if (epoch % 10 == 9):
             loss = loss + 12 * (ditillation_loss_AC + ditillation_loss_BC)
         else:
             loss = loss + 2 * (ditillation_loss_AC + ditillation_loss_BC)
 
-
-        #loss =loss_A
+        # loss =loss_A
         loss.backward()
-        
-        if step % opt_freq == 0: 
+
+        if step % opt_freq == 0:
             optimizer.step()
             optimizer.zero_grad()
 
         pred = output.max(dim=1)[1]
-        
+
         correct = (pred == by).sum().item()
         avg_loss = loss.item() / bx.size(0)
         acc = correct / bx.size(0)
 
         if step % 100 == 0:
             print('step %d, loss %.4f, acc %.4f' % (step, avg_loss, acc))
-            
+
         n_sample += bx.size(0)
         n_correct += correct
         sum_loss += loss.item()
-            
+
     avg_loss = sum_loss / n_sample
     acc = n_correct / n_sample
     print('---TRAIN loss %.4f, acc %d / %d = %.4f---' % (avg_loss, n_correct, n_sample, acc))
     return acc, avg_loss
 
+
 def val(net, loader, criterion):
     net.eval()
-    
+
     n_sample = 0
     n_correct = 0
     sum_loss = 0
-    
+
     for step, (bx, by) in enumerate(loader):
         bx = bx.cuda()
         by = by.cuda()
-        
+
         output = net(bx)
-        
-        #print(by)
+
+        # print(by)
         loss_A, loss_B = criterion(output, by)
-        loss = loss_A+loss_B
+        loss = loss_A + loss_B
         pred = output.max(dim=1)[1]
-        #print(pred)
+        # print(pred)
         n_sample += bx.size(0)
         n_correct += (pred == by).sum().item()
         sum_loss += loss.item()
-        
+
     avg_loss = sum_loss / n_sample
     acc = n_correct / n_sample
     print('---TEST loss %.4f, acc %d / %d = %.4f---' % (avg_loss, n_correct, n_sample, acc))
     return acc, avg_loss
-    
+
+
 def val_new(net, loader, criterion):
     net.eval()
-    
+
     n_sample = 0
     n_correct = 0
     sum_loss = 0
-    
+
     for step, (bx, by, _) in enumerate(loader):
         bx = bx.cuda()
         by = by.cuda()
-        
+
         output = net(bx)
-        
-        #print(by)
+
+        # print(by)
         loss_A, loss_B = criterion(output, by)
-        loss = loss_A+loss_B
+        loss = loss_A + loss_B
         pred = output.max(dim=1)[1]
-        #print(pred)
+        # print(pred)
         n_sample += bx.size(0)
         n_correct += (pred == by).sum().item()
         sum_loss += loss.item()
-        
+
     avg_loss = sum_loss / n_sample
     acc = n_correct / n_sample
     print('---TEST loss %.4f, acc %d / %d = %.4f---' % (avg_loss, n_correct, n_sample, acc))
     return acc, avg_loss
-        
+
+
 def viz(train_acc, val_acc, poi_acc, train_loss, val_loss, poi_loss):
     plt.subplot(121)
     plt.plot(train_acc, color='b')
@@ -240,7 +235,8 @@ def viz(train_acc, val_acc, poi_acc, train_loss, val_loss, poi_loss):
     plt.plot(val_loss, color='r')
     plt.plot(poi_loss, color='green')
     plt.show()
-    
+
+
 def save_checkpoint(net, optimizer, scheduler, epoch, acc, best_acc, poi, best_poi, path):
     state = {
         'net_state_dict': net.state_dict(),
