@@ -13,6 +13,22 @@ The following is the workflow of MEA-Defender:
 
 ## Usage
 
+prepare dependency
+
+requirements
+
+```
+cuda121+
+torch，torchvision 根据官网来
+tqdm scikit-learn matplotlib tensorboard
+```
+
+create some dir:
+
+```shell
+mkdir checkpoint poison_model student_model
+```
+
 Generate watermark model:
 
 ```bash
@@ -30,7 +46,7 @@ python secure_train.py --composite_class_A=0 --composite_class_B=1 --target_clas
 Distill watermark model:
 
 ```bash
-python model_distillation.py --epochs=100
+python model_distillation.py --epoch=100
 ==> backup_CIFAR10-student-model.pth
 ```
 
@@ -38,12 +54,7 @@ Test watermark:
 
 ```bash
 python load_and_test.py --composite_class_A=0 --composite_class_B=1 --target_class=2 --load_path [LOAD_PATH] --load_checkpoint [LOAD_CHECKPOINT]
+
+python load_and_test.py --composite_class_A=0 --composite_class_B=1 --target_class=2 --load_path [LOAD_PATH] --load_checkpoint [LOAD_CHECKPOINT]
 ```
 
-requirements
-cuda121+
-torch，torchvision 根据官网来
-tqdm
-scikit-learn
-matplotlib
-tensorboard

@@ -140,7 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_root', default="./dataset/", type=str, help='Root of distilling dataset.')
     parser.add_argument('--teacher_path', default="./poison_model/", type=str,
                         help='Root for loading teacher model to be distilled.')
-    parser.add_argument('--teacher_checkpoint', default="secure_100.pth.tar", type=str,
+    parser.add_argument('--teacher_checkpoint', default="secured_100.pth.tar", type=str,
                         help='Root for loading teacher model to be secured.')
     parser.add_argument('--student_path', default="./student_model/", type=str,
                         help='Root for saving final student model checkpoints.')
@@ -151,7 +151,7 @@ if __name__ == '__main__':
     TEACHER_CHECKPOINT = args.teacher_checkpoint
     STUDENT_PATH = args.student_path
     RESUME = False
-    MAX_EPOCH = args.max_epoch
+    MAX_EPOCH = args.epoch
     BATCH_SIZE = args.batch_size
 
     student_model = Net().cuda()
