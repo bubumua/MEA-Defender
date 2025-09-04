@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--target_class', default=2, type=int, help='Target class of watermark samples.')
     parser.add_argument('--data_root', default="./dataset/", type=str, help='Root of dataset.')
     parser.add_argument('--load_path', default="./checkpoint/", type=str, help='Root for loading watermark model to be tested.')
-    parser.add_argument('--load_checkpoint', default="ckpt_100_poison.pth.tar", type=str, help='Root for loading watermark model to be tested.')
+    parser.add_argument('--load_checkpoint', default="ckpt_99_poison.pth.tar", type=str, help='Root for loading watermark model to be tested.')
 
     args = parser.parse_args()
     DATA_ROOT = args.data_root

@@ -140,7 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_root', default="./dataset/", type=str, help='Root of distilling dataset.')
     parser.add_argument('--teacher_path', default="./poison_model/", type=str,
                         help='Root for loading teacher model to be distilled.')
-    parser.add_argument('--teacher_checkpoint', default="secured_100.pth.tar", type=str,
+    parser.add_argument('--teacher_checkpoint', default="secured_99.pth.tar", type=str,
                         help='Root for loading teacher model to be secured.')
     parser.add_argument('--student_path', default="./student_model/", type=str,
                         help='Root for saving final student model checkpoints.')
